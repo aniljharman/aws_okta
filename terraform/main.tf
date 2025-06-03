@@ -103,8 +103,3 @@ resource "aws_lambda_permission" "allow_apigw" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.okta_api.execution_arn}/*/*"
 }
-
-# Output API URL
-output "api_url" {
-  value = "${aws_apigatewayv2_api.okta_api.api_endpoint}/okta-webhook"
-}
