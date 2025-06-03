@@ -45,8 +45,13 @@ def lambda_handler(event, context):
     )
 
     # Alert if threshold exceeded
-    if len(response['Items']) > THRESHOLD:
-        msg = f":warning: *{len(response['Items'])}* users removed from *{group_name}* in the last 5 mins!"
-        requests.post(SLACK_URL, json={"text": msg})
+    item_count = len(response['Items'])
+    print(f"Item count in last {WINDOW_SECONDS} seconds: {item_count}")
+
+    if item_count > THRESHOLD:
+        msg = f":warning: *{item_count}* users removed from *{group_name}* in the last 5 mins!"
+        response = requests.post(SLACK_URL, json={"text": msg})
+        print(f"Slack response status: {response.status_code}, body: {response.text}")
+
 
     return {"statusCode": 200, "body": "Processed"}
