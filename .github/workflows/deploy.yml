@@ -1,0 +1,39 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.10
+
+    - name: Install Python dependencies
+      run: |
+        pip install -r lambda/requirements.txt -t lambda/
+        cd lambda && zip -r ../lambda.zip .
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    - name: Terraform Init
+      working-directory: terraform
+      run: terraform init
+
+    - name: Terraform Plan
+      working-directory: terraform
+      run: terraform plan -var="slack_webhook_url=${{ secrets.SLACK_WEBHOOK_URL }}"
+
+    - name: Terraform Apply
+      working-directory: terraform
+      run: terraform apply -auto-approve -var="slack_webhook_url=${{ secrets.SLACK_WEBHOOK_URL }}"
+

@@ -1,0 +1,31 @@
+{
+  "uuid": "b547dfca-e302-11ee-a612-59d80b89fc08",
+  "published": "2024-03-15T19:32:06.589Z",
+  "eventType": "group.user_membership.remove",
+  "version": "0",
+  "displayMessage": "Remove user from group membership",
+  "severity": "INFO",
+  "actor": {
+    "id": "00u10s8t19rLHtoM8358",
+    "type": "User",
+    "alternateId": "admin.user@samsara.com",
+    "displayName": "Admin User"
+  },
+  "outcome": {
+    "result": "SUCCESS"
+  },
+  "target": [
+    {
+      "id": "00uqc6tqoofqTZ6Hy357",
+      "type": "User",
+      "alternateId": "removed.user@samsara.com",
+      "displayName": "Removed User"
+    },
+    {
+      "id": "00gavocg71mBLCVsa357",
+      "type": "UserGroup",
+      "alternateId": "unknown",
+      "displayName": "DemoGroup"
+    }
+  ]
+}
