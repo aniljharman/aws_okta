@@ -42,7 +42,11 @@ def lambda_handler(event, context):
 
         # Query for recent removals from the same group
         response = table.query(
-            KeyConditionExpression="group_name = :g AND timestamp >= :start",
+            KeyConditionExpression="#g = :g AND #ts >= :start",
+            ExpressionAttributeValues={
+                ":g": "group_name",
+                "#ts": "timestamp"
+            },
             ExpressionAttributeValues={
                 ":g": group_name,
                 ":start": timestamp - WINDOW_SECONDS
