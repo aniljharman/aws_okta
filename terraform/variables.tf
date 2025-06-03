@@ -1,12 +1,15 @@
 variable "aws_region" {
-  default = "us-east-1"
+  type        = string
+  description = "AWS region to deploy into"
 }
 
 variable "dynamodb_table" {
-  default = "OktaGroupRemovals"
+  type        = string
+  description = "DynamoDB table name"
+  default     = "OktaGroupRemovals"
 }
 
 variable "slack_webhook_url" {
-  description = "Slack webhook URL"
   type        = string
+  description = "Slack Incoming Webhook URL"
 }

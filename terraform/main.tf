@@ -2,11 +2,12 @@ provider "aws" {
   region = var.aws_region
 }
 
+# DynamoDB table to track removals
 resource "aws_dynamodb_table" "okta_alerts" {
-  name           = var.dynamodb_table
-  hash_key       = "group_name"
-  range_key      = "timestamp"
-  billing_mode   = "PAY_PER_REQUEST"
+  name         = var.dynamodb_table
+  hash_key     = "group_name"
+  range_key    = "timestamp"
+  billing_mode = "PAY_PER_REQUEST"
 
   attribute {
     name = "group_name"
@@ -24,23 +25,29 @@ resource "aws_dynamodb_table" "okta_alerts" {
   }
 }
 
+# IAM Role for Lambda Execution
 resource "aws_iam_role" "lambda_exec" {
   name = "okta_lambda_exec"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
-      Principal = { Service = "lambda.amazonaws.com" },
+      Effect    = "Allow",
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      },
       Action = "sts:AssumeRole"
     }]
   })
 }
 
+# Attach DynamoDB access policy to Lambda role
 resource "aws_iam_role_policy_attachment" "lambda_dynamo_attach" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
 }
 
+# Lambda Function to process Okta webhooks
 resource "aws_lambda_function" "webhook_handler" {
   function_name = "okta-webhook-handler"
   role          = aws_iam_role.lambda_exec.arn
@@ -59,34 +66,45 @@ resource "aws_lambda_function" "webhook_handler" {
   }
 }
 
+# API Gateway - HTTP API
 resource "aws_apigatewayv2_api" "okta_api" {
   name          = "okta-api"
   protocol_type = "HTTP"
 }
 
+# Integrate API Gateway with Lambda
 resource "aws_apigatewayv2_integration" "lambda_integration" {
-  api_id             = aws_apigatewayv2_api.okta_api.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.webhook_handler.invoke_arn
-  integration_method = "POST"
-  payload_format_version = "2.0"
+  api_id                  = aws_apigatewayv2_api.okta_api.id
+  integration_type        = "AWS_PROXY"
+  integration_uri         = aws_lambda_function.webhook_handler.invoke_arn
+  integration_method      = "POST"
+  payload_format_version  = "2.0"
 }
 
+# Define route: POST /okta-webhook
 resource "aws_apigatewayv2_route" "route" {
   api_id    = aws_apigatewayv2_api.okta_api.id
   route_key = "POST /okta-webhook"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
+# Create default stage with auto-deploy
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.okta_api.id
   name        = "$default"
   auto_deploy = true
 }
 
+# Allow API Gateway to invoke Lambda
 resource "aws_lambda_permission" "allow_apigw" {
+  statement_id  = "AllowInvokeFromAPIGateway"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.webhook_handler.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.okta_api.execution_arn}/*/*"
+}
+
+# Output API URL
+output "api_url" {
+  value = "${aws_apigatewayv2_api.okta_api.api_endpoint}/okta-webhook"
 }
