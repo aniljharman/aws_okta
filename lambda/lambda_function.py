@@ -3,7 +3,9 @@ import time
 import os
 import boto3
 import requests
+from datetime import datetime
 
+# Set up AWS DynamoDB and environment variables
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['DDB_TABLE'])
 SLACK_URL = os.environ['SLACK_WEBHOOK_URL']
@@ -16,11 +18,18 @@ def lambda_handler(event, context):
     if body.get("eventType") != "group.user_membership.remove":
         return {"statusCode": 200, "body": "Ignored"}
 
+    # Extract group info
     group_info = next((t for t in body["target"] if t["type"] == "UserGroup"), None)
-    if not group_info:
+    user_info = next((t for t in body["target"] if t["type"] == "User"), None)
+    if not group_info or not user_info:
         return {"statusCode": 400, "body": "Invalid payload"}
 
     group_name = group_info["displayName"]
+    removed_user = user_info.get("displayName", "Unknown User")
+    actor = body.get("actor", {}).get("displayName", "Unknown Actor")
+    published_time = body.get("published", "")
+    published_time = datetime.strptime(published_time, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y-%m-%d %H:%M:%S")
+
     timestamp = int(time.time())
     ttl = timestamp + WINDOW_SECONDS
 
@@ -49,9 +58,32 @@ def lambda_handler(event, context):
     print(f"Item count in last {WINDOW_SECONDS} seconds: {item_count}")
 
     if item_count > THRESHOLD:
-        msg = f":warning: *{item_count}* users removed from *{group_name}* in the last 5 mins!"
-        response = requests.post(SLACK_URL, json={"text": msg})
-        print(f"Slack response status: {response.status_code}, body: {response.text}")
-
+        slack_blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "⚠️ Mass User Removal Alert"
+                }
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Group Name:*\n{group_name}"},
+                    {"type": "mrkdwn", "text": f"*Removals in 5 mins:*\n{item_count}"},
+                    {"type": "mrkdwn", "text": f"*Removed User:*\n{removed_user}"},
+                    {"type": "mrkdwn", "text": f"*Removed By:*\n{actor}"},
+                    {"type": "mrkdwn", "text": f"*Time:*\n{published_time}"}
+                ]
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {"type": "mrkdwn", "text": f"Monitored by Lambda using DynamoDB TTL window of {WINDOW_SECONDS} seconds"}
+                ]
+            }
+        ]
+        slack_response = requests.post(SLACK_URL, json={"blocks": slack_blocks})
+        print(f"Slack response status: {slack_response.status_code}, body: {slack_response.text}")
 
     return {"statusCode": 200, "body": "Processed"}
