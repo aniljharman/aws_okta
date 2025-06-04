@@ -5,7 +5,7 @@ import boto3
 import requests
 from datetime import datetime
 
-# Set up AWS DynamoDB and environment variables
+# Set up AWS DynamoDB and environment variables 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ['DDB_TABLE'])
 SLACK_URL = os.environ['SLACK_WEBHOOK_URL']
