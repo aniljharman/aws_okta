@@ -81,13 +81,13 @@ resource "aws_lambda_function" "webhook_handler" {
   }
 }
 
-# API Gateway - HTTP API
+# Create a new HTTP-based API Gateway to expose an endpoint for Okta webhooks
 resource "aws_apigatewayv2_api" "okta_api" {
   name          = "okta-api"
   protocol_type = "HTTP"
 }
 
-# Integrate API Gateway with Lambda
+# Integrate the Lambda function with API Gateway using AWS_PROXY
 resource "aws_apigatewayv2_integration" "lambda_integration" {
   api_id                  = aws_apigatewayv2_api.okta_api.id
   integration_type        = "AWS_PROXY"
@@ -96,21 +96,21 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
   payload_format_version  = "2.0"
 }
 
-# Define route: POST /okta-webhook
+# Define the specific route (POST /okta-webhook) that will be called by Okta
 resource "aws_apigatewayv2_route" "route" {
   api_id    = aws_apigatewayv2_api.okta_api.id
   route_key = "POST /okta-webhook"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
-# Create default stage with auto-deploy
+# Create a default stage for API Gateway and enable auto-deploy so no manual deployment needed
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.okta_api.id
   name        = "$default"
   auto_deploy = true
 }
 
-# Allow API Gateway to invoke Lambda
+# Grant API Gateway permission to invoke the Lambda function
 resource "aws_lambda_permission" "allow_apigw" {
   statement_id  = "AllowInvokeFromAPIGateway"
   action        = "lambda:InvokeFunction"

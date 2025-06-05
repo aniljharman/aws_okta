@@ -13,14 +13,16 @@ THRESHOLD = int(os.environ.get("ALERT_THRESHOLD", 5))
 WINDOW_SECONDS = int(os.environ.get("ALERT_WINDOW_SECONDS", 300))
 
 def lambda_handler(event, context):
+    # parse the webhook post payload from okta
     body = json.loads(event['body'])
 
     if body.get("eventType") != "group.user_membership.remove":
         return {"statusCode": 200, "body": "Ignored"}
 
-    # Extract group info
+    # Extract group and user info from the payload
     group_info = next((t for t in body["target"] if t["type"] == "UserGroup"), None)
     user_info = next((t for t in body["target"] if t["type"] == "User"), None)
+    # reject if essential info is missing
     if not group_info or not user_info:
         return {"statusCode": 400, "body": "Invalid payload"}
 
@@ -28,8 +30,9 @@ def lambda_handler(event, context):
     removed_user = user_info.get("displayName", "Unknown User")
     actor = body.get("actor", {}).get("displayName", "Unknown Actor")
     published_time = body.get("published", "")
+    # format the time into a human readable format
     published_time = datetime.strptime(published_time, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y-%m-%d %H:%M:%S")
-
+    # create a timestamp and TTl for dynamoDB auto expiration
     timestamp = int(time.time())
     ttl = timestamp + WINDOW_SECONDS
 
@@ -41,7 +44,7 @@ def lambda_handler(event, context):
         "user": removed_user
     })
 
-    # Query recent events for the same group
+    # Query all recent removals from this group within the alert window
     response = table.query(
         KeyConditionExpression="#g = :g AND #ts >= :start",
         ExpressionAttributeNames={
@@ -53,7 +56,8 @@ def lambda_handler(event, context):
             ":start": timestamp - WINDOW_SECONDS
         }
     )
-
+    
+    # Extract the usernames of all removed users in the current window
     removed_users = [item.get("user", "Unknown") for item in response['Items']]
     # unique_users = list(set(removed_users))
 
@@ -87,6 +91,7 @@ def lambda_handler(event, context):
                 ]
             }
         ]
+        # Post the structured message to Slack via webhook
         slack_response = requests.post(SLACK_URL, json={"blocks": slack_blocks})
         print(f"Slack response status: {slack_response.status_code}, body: {slack_response.text}")
 
