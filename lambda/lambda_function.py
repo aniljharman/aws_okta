@@ -37,7 +37,8 @@ def lambda_handler(event, context):
     table.put_item(Item={
         "group_name": group_name,
         "timestamp": timestamp,
-        "ttl": ttl
+        "ttl": ttl,
+        "user": removed_user
     })
 
     # Query recent events for the same group
@@ -52,6 +53,9 @@ def lambda_handler(event, context):
             ":start": timestamp - WINDOW_SECONDS
         }
     )
+
+    removed_users = [item.get("user", "Unknown") for item in response['items']]
+    # unique_users = list(set(removed_users))
 
     # Alert if threshold exceeded
     item_count = len(response['Items'])
@@ -71,7 +75,7 @@ def lambda_handler(event, context):
                 "fields": [
                     {"type": "mrkdwn", "text": f"*Group Name:*\n{group_name}"},
                     {"type": "mrkdwn", "text": f"*Removals in 5 mins:*\n{item_count}"},
-                    {"type": "mrkdwn", "text": f"*Removed User:*\n{removed_user}"},
+                    {"type": "mrkdwn", "text": f"*Users Removed:*\n{', '.join(removed_users)}"},
                     {"type": "mrkdwn", "text": f"*Removed By:*\n{actor}"},
                     {"type": "mrkdwn", "text": f"*Timestamp:*\n{published_time}"}
                 ]
