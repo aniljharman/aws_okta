@@ -54,7 +54,7 @@ def lambda_handler(event, context):
         }
     )
 
-    removed_users = [item.get("user", "Unknown") for item in response['items']]
+    removed_users = [item.get("user", "Unknown") for item in response['Items']]
     # unique_users = list(set(removed_users))
 
     # Alert if threshold exceeded
